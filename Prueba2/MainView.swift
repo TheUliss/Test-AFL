@@ -11,31 +11,10 @@
 
  @main
 
-/*
-class AppDelegate: UIResponder, UIApplicationDelegate {
-    
-    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        print("✅ La app ha iniciado correctamente")
-
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-            if granted {
-                print("Permisos de notificación concedidos")
-                DispatchQueue.main.async {
-                    application.registerForRemoteNotifications()
-                }
-            } else if let error = error {
-                print("Error en permisos: \(error.localizedDescription)")
-            }
-        }
-
-        return true
-    }
-
-}
-*/
     
  struct Prueba2App: App {
      @StateObject private var dataManager = DataManager()
+     @StateObject private var attendanceVM = AttendanceViewModel()
     //@UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
      var body: some Scene {
@@ -43,6 +22,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             // DashboardView()
              ContentView()
              .environmentObject(dataManager)
+             .environmentObject(attendanceVM)
          }
      }
  }

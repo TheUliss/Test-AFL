@@ -12,7 +12,11 @@ struct AttendanceStatsView: View {
         case month = "Este mes"
     }
     
-    var stats: AttendanceViewModel.AttendanceStats {
+    var terminatedEmployees: [Employee] {
+        viewModel.employees.filter { $0.status == .inactive }
+    }
+    
+    var stats: AttendanceStats {
         viewModel.getAttendanceStats()
     }
     
@@ -37,6 +41,9 @@ struct AttendanceStatsView: View {
                     
                     // Empleados con múltiples faltas
                     frequentAbsenteesSection
+                    
+                    // Sección de bajas
+                    terminatedEmployeesSection
                 }
                 .padding(.vertical)
             }
@@ -179,34 +186,121 @@ struct AttendanceStatsView: View {
         }
     }
     
+    
+    private var terminatedEmployeesSection: some View {
+            Group {
+                if !terminatedEmployees.isEmpty {
+                    VStack(spacing: 12) {
+                        HStack {
+                            Text("Empleados dados de baja")
+                                .font(.headline)
+                            Spacer()
+                            Text("Total: \(terminatedEmployees.count)")
+                                .font(.subheadline)
+                        }
+                        
+                        ForEach(terminatedEmployees.prefix(3)) { employee in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(employee.name)
+                                        .font(.subheadline)
+                                    Text("#\(employee.operatorNumber) - \(employee.area)")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    
+                                    if let date = employee.terminationDate {
+                                        Text("Baja: \(date.formatted(date: .abbreviated, time: .omitted))")
+                                            .font(.caption2)
+                                            .foregroundColor(.gray)
+                                    }
+                                }
+                                Spacer()
+                            }
+                            .padding(.vertical, 8)
+                        }
+                        
+                        if terminatedEmployees.count > 3 {
+                            NavigationLink(destination: TerminatedEmployeesListView()) {
+                                Text("Ver todos (\(terminatedEmployees.count))")
+                                    .font(.caption)
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(Color(.systemBackground))
+                    .cornerRadius(12)
+                    .shadow(radius: 2)
+                    .padding(.horizontal)
+                }
+            }
+        }
+    
+    
     private func generateReport() {
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateStyle = .medium
-        
-        let reportText = """
-        Reporte de Asistencia - \(dateFormatter.string(from: Date()))
-        =====================================
-        
-        Resumen General:
-        - Presentes: \(stats.present)
-        - Ausentes: \(stats.absent)
-        - Total empleados: \(stats.totalEmployees)
-        - Porcentaje de asistencia: \(String(format: "%.1f%%", stats.attendancePercentage))
-        - Horas trabajadas: \(String(format: "%.1f h", stats.totalHoursWorked))
-        
-        Asistencia por Áreas:
-        \(stats.attendanceByArea.map { "- \($0.area): \($0.present)/\($0.total) (\(String(format: "%.1f%%", Double($0.present)/Double($0.total)*100))" }.joined(separator: "\n"))
-        
-        Empleados con múltiples faltas:
-        \(stats.frequentAbsentees.isEmpty ? "Ninguno" : stats.frequentAbsentees.map { "- \($0.name) (#\($0.operatorNumber))" }.joined(separator: "\n"))
-        """
-        
-        // Generar PDF (implementación básica)
-        let pdfGenerator = PDFGenerator()
-        pdfURL = pdfGenerator.generateAttendancePDF(content: reportText)
-        showingShareSheet = true
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateStyle = .medium
+            
+            let reportText = """
+            Reporte de Asistencia - \(dateFormatter.string(from: Date()))
+            =====================================
+            
+            RESUMEN GENERAL:
+            • Total empleados: \(stats.totalEmployees)
+            • Activos: \(stats.activeEmployees)
+            • Presentes: \(stats.present)
+            • Ausentes: \(stats.absent)
+            • Bajas: \(stats.terminated)
+            • Porcentaje de asistencia: \(String(format: "%.1f%%", stats.attendancePercentage))
+            • Horas trabajadas: \(String(format: "%.1f h", stats.totalHoursWorked))
+            
+            OPERADORES POR ÁREA:
+            \(stats.operatorsByArea.map { "• \($0.key): \($0.value)" }.joined(separator: "\n"))
+            
+            EMPLEADOS AUSENTES HOY:
+            \(viewModel.attendanceRecords.filter {
+                Calendar.current.isDate($0.date, inSameDayAs: viewModel.selectedDate) && $0.status == .absent
+            }.compactMap { record in
+                viewModel.employees.first { $0.id == record.employeeId }?.name
+            }.joined(separator: "\n• "))
+            
+            EMPLEADOS DADOS DE BAJA:
+            \(terminatedEmployees.map { "• \($0.name) (#\($0.operatorNumber)) - \($0.terminationDate?.formatted(date: .abbreviated, time: .omitted) ?? "Sin fecha")" }.joined(separator: "\n"))
+            """
+            
+            let pdfGenerator = PDFGenerator2()
+            pdfURL = pdfGenerator.generateAttendancePDF(content: reportText)
+            showingShareSheet = true
+        }
     }
-}
+
+    struct TerminatedEmployeesListView: View {
+        @EnvironmentObject var viewModel: AttendanceViewModel
+        
+        var body: some View {
+            List {
+                ForEach(viewModel.employees.filter { $0.status == .inactive }) { employee in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(employee.name)
+                                .font(.headline)
+                            Text("#\(employee.operatorNumber) - \(employee.area)")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            
+                            if let date = employee.terminationDate {
+                                Text("Fecha de baja: \(date.formatted(date: .complete, time: .omitted))")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                        Spacer()
+                    }
+                }
+            }
+            .navigationTitle("Empleados dados de baja")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
 
 struct StatCard: View {
     let title: String
@@ -235,17 +329,38 @@ struct StatCard: View {
     }
 }
 
-struct ShareSheet: UIViewControllerRepresentable {
-    let activityItems: [Any]
+
+struct ProgressBar: View {
+    var value: Double
+    var total: Double
+    var color: Color = .blue
     
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+    var percentage: Double {
+        total > 0 ? value / total : 0
     }
     
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                Rectangle()
+                    .frame(width: geometry.size.width, height: 6)
+                    .opacity(0.3)
+                    .foregroundColor(Color.gray)
+                
+                Rectangle()
+                    .frame(width: min(CGFloat(percentage) * geometry.size.width, geometry.size.width), height: 6)
+                    .foregroundColor(color)
+                    .animation(.linear, value: percentage)
+            }
+            .cornerRadius(3)
+        }
+        .frame(height: 6)
+    }
 }
 
-class PDFGenerator {
+
+
+class PDFGenerator2 {
     func generateAttendancePDF(content: String) -> URL {
         let format = UIGraphicsPDFRendererFormat()
         let pageWidth = 8.5 * 72.0
@@ -279,3 +394,5 @@ class PDFGenerator {
         }
     }
 }
+
+

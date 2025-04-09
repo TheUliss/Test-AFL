@@ -12,6 +12,7 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject var dataManager: DataManager
     @State private var mostrarAgregarArticulo = false
+    @StateObject private var attendanceVM = AttendanceViewModel()
 
     var body: some View {
         ZStack {
@@ -62,6 +63,7 @@ struct ContentView: View {
         .sheet(isPresented: $mostrarAgregarArticulo) {
             AgregarArticuloView(articuloEditable: .constant(nil))
                 .environmentObject(dataManager)
+                .environmentObject(attendanceVM)
         }
     }
 }

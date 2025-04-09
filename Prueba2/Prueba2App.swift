@@ -14,6 +14,10 @@ import UserNotifications
 
 class DataManager: ObservableObject {
     
+    
+  //  @Published var employees: [Employee] = []
+ //   @Published var attendanceRecords: [AttendanceRecord] = []
+    
     private var timer: Timer?
     static let shared = DataManager()
     
@@ -60,6 +64,7 @@ class DataManager: ObservableObject {
         cargarArticulos()
         solicitarPermisosNotificaciones()   //permiso para las notificaciones
         startBackgroundMonitoring()
+       // loadEmployees()
     }
  
     

@@ -145,19 +145,6 @@ struct OrderWidgetEntry: TimelineEntry {
     let configuration: ConfigurationAppIntent
 }
 
-/*
-public struct OrderWidgetEntry: TimelineEntry {
-    public let date: Date
-    public let ordenes: [Orden]
-    public let configuration: ConfigurationAppIntent
-    
-    public init(date: Date, ordenes: [Orden], configuration: ConfigurationAppIntent) {
-        self.date = date
-        self.ordenes = ordenes
-        self.configuration = configuration
-    }
-}
-*/
 
 struct ConfigurationAppIntent: WidgetConfigurationIntent {
     static var title: LocalizedStringResource = "Configuración"
@@ -166,3 +153,5 @@ struct ConfigurationAppIntent: WidgetConfigurationIntent {
     @Parameter(title: "Número de Órdenes", default: 5)
     var maxOrdenes: Int
 }
+
+
