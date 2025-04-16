@@ -9,32 +9,82 @@ import Foundation
 
 struct DashboardView: View {
     @EnvironmentObject var dataManager: DataManager
-
+    @EnvironmentObject var attendanceVM: AttendanceViewModel
+    
     var body: some View {
-        NavigationView { // 📌 Asegurar que todo esté dentro de NavigationView
+        NavigationView {
             ScrollView {
                 VStack(spacing: 20) {
-                    // Resumen rápido
                     MetricasRapidasView()
                         .padding(.horizontal)
-
+                    
+                    // Modifica el ResumenAsistenciaView para incluir estadísticas
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                        Text("Asistencia Hoy")
+                            .font(.headline)
+                                                
+                        Spacer()
+                            NavigationLink(destination: AttendanceStatsView()) {
+                                    Image(systemName: "ecg.text.page")
+                                        .padding(.trailing, 20) // Añade un padding de 20 puntos a la derecha de la primera imagen
+                                }
+                                NavigationLink(destination: AttendanceView()) {
+                                    Image(systemName: "pencil.and.list.clipboard")
+                                }
+                    }
+                                            
+                    let stats = attendanceVM.getAttendanceStats() //
+                        HStack(spacing: 15) {
+                            StatCard(
+                                title: "Presentes",
+                                value: "\(stats.present)",
+                                icon: "checkmark.circle.fill",
+                                color: .green
+                            )
+                            
+                            StatCard(
+                                title: "Ausentes",
+                                value: "\(stats.absent)",
+                                icon: "xmark.circle.fill",
+                                color: .red
+                            )
+                            
+                            StatCard(
+                                title: "Asistencia",
+                                value: String(format: "%.1f%%", stats.attendancePercentage),
+                                icon: "chart.pie.fill",
+                                color: .blue
+                            )
+                        }
+                    }
+                    .padding()
+                    .background(Color(.systemBackground))
+                    .cornerRadius(12)
+                    .shadow(radius: 2)
+                    .padding(.horizontal)
+                    
                     GraficoSemanasView()
                         .padding(.horizontal)
-
-                    // Materiales críticos
+                    
                     ResumenMaterialesView()
                         .padding(.horizontal)
-
-                    // Gráfico de eficiencia
-                    // GraficoEficienciaView()
                 }
                 .padding(.vertical)
             }
-            .background(Color(.secondarySystemBackground)) // Material oscuro
-            .navigationTitle("Dashboard") // 📌 Título dentro del NavigationView
+            .background(Color(.secondarySystemBackground))
+            .navigationTitle("Dashboard")
+           /* .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                NavigationLink(destination: AttendanceView()) {
+                Image(systemName: "list.bullet.clipboard")
+                    }
+                }
+            }*/
         }
     }
 }
+
 
 //MARK: CALSIFICACION DE ORDENES
 
@@ -566,9 +616,9 @@ struct ResumenMaterialesView: View {
             inicializarMateriales()
         }
         // Agregar este modificador a la vista principal
-        .onChange(of: pdfURL) { newURL in
-            if newURL != nil {
-                showingShareSheet = true
+        .onChange(of: pdfURL) { _, newURL in // Or just { _, newURL in if you don't need the old value
+          if newURL != nil {
+          showingShareSheet = true
         
             }
         }
@@ -696,3 +746,82 @@ struct ResumenMaterialesView: View {
     }
 }
 
+struct ResumenAsistenciaView: View {
+    @EnvironmentObject var dataManager: DataManager
+    @EnvironmentObject var attendanceVM: AttendanceViewModel
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Asistencia Hoy")
+                    .font(.headline)
+                
+                Spacer()
+                
+                NavigationLink(destination: AttendanceView()) {
+                    Text("Ver todo")
+                        .font(.subheadline)
+                }
+            }
+            
+            let stats = attendanceVM.getAttendanceStats() 
+            
+            HStack {
+                VStack(alignment: .leading) {
+                    Text("Presentes")
+                        .font(.subheadline)
+                    Text("\(stats.present)")
+                        .font(.title2)
+                        .foregroundColor(.green)
+                }
+                .frame(maxWidth: .infinity)
+                
+                Divider()
+                
+                VStack(alignment: .leading) {
+                    Text("Ausentes")
+                        .font(.subheadline)
+                    Text("\(stats.absent)")
+                        .font(.title2)
+                        .foregroundColor(.red)
+                }
+                .frame(maxWidth: .infinity)
+                
+                Divider()
+                
+                VStack(alignment: .leading) {
+                    Text("Total")
+                        .font(.subheadline)
+                    Text("\(attendanceVM.employees.count)")
+                        .font(.title2)
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .frame(height: 80)
+            .padding()
+            .background(Color(.systemBackground))
+            .cornerRadius(10)
+            
+            if !stats.frequentAbsentees.isEmpty {
+                VStack(alignment: .leading) {
+                    Text("Alertas:")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    ForEach(stats.frequentAbsentees.prefix(2)) { employee in
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                            Text("\(employee.name) - \(employee.operatorNumber)")
+                                .font(.caption)
+                        }
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
+        .shadow(radius: 2)
+    }
+}

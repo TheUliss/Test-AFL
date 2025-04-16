@@ -17,13 +17,22 @@ class DataManager: ObservableObject {
     private var timer: Timer?
     static let shared = DataManager()
     
-    
     @Published var articulos: [Articulo] = [] {
         didSet {
             guardarArticulos()
             // actualizarOrdenes() // Actualizar las órdenes cuando cambian los artículos
         }
     }
+    
+/*    func guardar() {
+            // Implementa la lógica para guardar los datos
+            // Por ejemplo, usando UserDefaults, CoreData, o archivos JSON
+            print("Datos guardados")
+            
+            // Esto fuerza la actualización de las vistas que observan este objeto
+            self.objectWillChange.send()
+        }
+ */
     
     // Propiedades computadas para mantener los datos sincronizados
     var ordenes: [Orden] {

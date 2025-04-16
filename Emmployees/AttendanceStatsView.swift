@@ -2,33 +2,43 @@ import SwiftUI
 
 struct AttendanceStatsView: View {
     @EnvironmentObject var viewModel: AttendanceViewModel
-    @State private var selectedTimeRange: TimeRange = .today
+    @State private var selectedTimeRange: AttendanceViewModel.TimeRange = .today
     @State private var showingShareSheet = false
     @State private var pdfURL: URL?
-    
-    enum TimeRange: String, CaseIterable {
-        case today = "Hoy"
-        case week = "Esta semana"
-        case month = "Este mes"
-    }
+    @Environment(\.dismiss) var dismiss // For going back
     
     var terminatedEmployees: [Employee] {
         viewModel.employees.filter { $0.status == .inactive }
     }
     
     var stats: AttendanceStats {
-        viewModel.getAttendanceStats()
+        let stats = viewModel.getAttendanceStats(for: selectedTimeRange)
+        // Sobrescribir el porcentaje con el cálculo correcto
+        return AttendanceStats(
+            present: stats.present,
+            absent: stats.absent,
+            terminated: stats.terminated,
+            onVacation: stats.onVacation,
+            suspended: stats.suspended,
+            onleave: stats.onleave,
+            totalEmployees: stats.totalEmployees,
+            activeEmployees: stats.activeEmployees,
+            operatorsByArea: stats.operatorsByArea,
+            attendancePercentage: viewModel.calculateAttendancePercentage(for: selectedTimeRange), // Usar la nueva función
+            totalHoursWorked: stats.totalHoursWorked,
+            frequentAbsentees: stats.frequentAbsentees,
+            attendanceByArea: stats.attendanceByArea
+        )
     }
     
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    // Selector de rango de tiempo
                     Picker("Rango de tiempo", selection: $selectedTimeRange) {
-                        ForEach(TimeRange.allCases, id: \.self) { range in
-                            Text(range.rawValue).tag(range)
-                        }
+                        Text("Hoy").tag(AttendanceViewModel.TimeRange.today)
+                        Text("Esta semana").tag(AttendanceViewModel.TimeRange.week)
+                        Text("Este mes").tag(AttendanceViewModel.TimeRange.month)
                     }
                     .pickerStyle(SegmentedPickerStyle())
                     .padding(.horizontal)
@@ -39,19 +49,38 @@ struct AttendanceStatsView: View {
                     // Asistencia por áreas
                     attendanceByAreaSection
                     
+                    specialStatusSection
+                    
                     // Empleados con múltiples faltas
                     frequentAbsenteesSection
                     
-                    // Sección de bajas
-                    terminatedEmployeesSection
+                    
                 }
                 .padding(.vertical)
             }
-            .navigationTitle("Estadísticas de Asistencia")
+            .navigationTitle("Resumen de Asistencia")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                
+                // Botón para volver a la vista principal (si es necesario)
+                ToolbarItem(placement: .navigationBarLeading) {
+                    NavigationLink {
+                        AttendanceView()
+                            .environmentObject(viewModel)
+                    } label: {
+                        Label("Volver", systemImage: "arrow.left")
+                    }
+                }
+                
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: generateReport) {
+                    Menu {
+                        Button(action: generateShortReport) {
+                            Label("Compartir resumen", systemImage: "text.bubble")
+                        }
+                        Button(action: generateDetailedPDF) {
+                            Label("Generar PDF completo", systemImage: "doc.text")
+                        }
+                    } label: {
                         Label("Compartir", systemImage: "square.and.arrow.up")
                     }
                 }
@@ -62,6 +91,39 @@ struct AttendanceStatsView: View {
                 }
             }
         }
+    }
+    
+    // Nuevas funciones:
+    private func generateShortReport() {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateStyle = .medium
+        
+        let reportText = """
+        📊 Resumen de Asistencia - \(dateFormatter.string(from: Date()))
+        
+        👥 Total: \(stats.totalEmployees)
+        ✅ Presentes: \(stats.present)
+        ❌ Ausentes: \(stats.absent)
+        🏖 Vacaciones: \(stats.onVacation)
+        ⏸ Suspendidos: \(stats.suspended)
+        📅 Permisos: \(stats.onleave)
+        
+        📈 Asistencia: \(String(format: "%.1f%%", stats.attendancePercentage))
+        ⏱ Horas trabajadas: \(String(format: "%.1f h", stats.totalHoursWorked))
+        """
+        let av = UIActivityViewController(activityItems: [reportText], applicationActivities: nil)
+         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+          let rootViewController = windowScene.windows.first?.rootViewController {
+          rootViewController.present(av, animated: true)
+         }
+    }
+    
+    private func generateDetailedPDF() {
+        // Implementación similar a la actual pero con más detalles
+        let reportText = generateCompleteReportText()
+        let pdfGenerator = PDFGenerator2()
+        pdfURL = pdfGenerator.generateAttendancePDF(content: reportText)
+        showingShareSheet = true
     }
     
     private var summarySection: some View {
@@ -92,6 +154,29 @@ struct AttendanceStatsView: View {
                     value: String(format: "%.1f%%", stats.attendancePercentage),
                     icon: "chart.pie.fill",
                     color: .blue
+                )
+            }
+            
+            HStack(spacing: 15) {
+                StatCard(
+                    title: "Vacaciones",
+                    value: "\(stats.onVacation)",
+                    icon: "beach.umbrella.fill",
+                    color: .blue
+                )
+                
+                StatCard(
+                    title: "Suspendidos",
+                    value: "\(stats.suspended)",
+                    icon: "person.fill.xmark",
+                    color: .orange
+                )
+                
+                StatCard(
+                    title: "Permisos",
+                    value: "\(stats.onleave)",
+                    icon: "calendar.badge.clock",
+                    color: .purple
                 )
             }
             
@@ -161,20 +246,37 @@ struct AttendanceStatsView: View {
                     }
                     
                     ForEach(stats.frequentAbsentees) { employee in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(employee.name)
-                                    .font(.subheadline)
-                                Text("#\(employee.operatorNumber) - \(employee.area)")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
+                        let absences = viewModel.attendanceRecords
+                            .filter { $0.employeeId == employee.id && $0.status == .absent }
+                            .sorted { $0.date > $1.date }
+                        
+                        DisclosureGroup {
+                            ForEach(absences.prefix(5)) { record in
+                                HStack {
+                                    Text(record.date.formatted(date: .abbreviated, time: .omitted))
+                                    Spacer()
+                                    if let reason = record.absenceReason {
+                                        Text(reason)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                                .font(.caption)
                             }
-                            Spacer()
-                            
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.red)
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(employee.name)
+                                        .font(.subheadline)
+                                    Text("#\(employee.operatorNumber) - \(employee.area)")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                Text("\(absences.count) faltas")
+                                    .font(.caption)
+                                    .foregroundColor(.red)
+                            }
                         }
-                        .padding(.vertical, 8)
                     }
                 }
                 .padding()
@@ -186,93 +288,267 @@ struct AttendanceStatsView: View {
         }
     }
     
+    private var specialStatusSection: some View {
+        VStack(spacing: 12) {
+            // 1. Refactor into a reusable function for each status type
+            specialStatusDisclosureGroup(
+                status: .onVacation,
+                employees: viewModel.employees.filter { $0.status == .onVacation },
+                statsCount: stats.onVacation,
+                title: "Empleados de Vacaciones",
+                icon: "beach.umbrella.fill",
+                color: .blue,
+                showTerminationDate: false
+            )
+            
+            specialStatusDisclosureGroup(
+                status: .onLeave,
+                employees: viewModel.employees.filter { $0.status == .onLeave },
+                statsCount: stats.onleave,
+                title: "Empleados con Permisos",
+                icon: "calendar.badge.checkmark",
+                color: .orange,
+                showTerminationDate: false
+            )
+            
+            specialStatusDisclosureGroup(
+                status: .suspended,
+                employees: viewModel.employees.filter { $0.status == .suspended },
+                statsCount: stats.suspended,
+                title: "Empleados Suspendidos",
+                icon: "person.fill.xmark",
+                color: .yellow,
+                showTerminationDate: false
+            )
+            
+            specialStatusDisclosureGroup(
+                status: .inactive,
+                employees: viewModel.employees.filter { $0.status == .inactive },
+                statsCount: stats.terminated,
+                title: "Empleados dados de Baja",
+                icon: "person.fill.xmark",
+                color: .red,
+                showTerminationDate: true
+            )
+            
+            // Repeat for other statuses (onLeave, etc.) if needed
+            
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
+        .shadow(radius: 2)
+        .padding(.horizontal)
+    }
     
-    private var terminatedEmployeesSection: some View {
-            Group {
-                if !terminatedEmployees.isEmpty {
-                    VStack(spacing: 12) {
-                        HStack {
-                            Text("Empleados dados de baja")
-                                .font(.headline)
-                            Spacer()
-                            Text("Total: \(terminatedEmployees.count)")
-                                .font(.subheadline)
-                        }
-                        
-                        ForEach(terminatedEmployees.prefix(3)) { employee in
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(employee.name)
-                                        .font(.subheadline)
-                                    Text("#\(employee.operatorNumber) - \(employee.area)")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    
-                                    if let date = employee.terminationDate {
-                                        Text("Baja: \(date.formatted(date: .abbreviated, time: .omitted))")
-                                            .font(.caption2)
-                                            .foregroundColor(.gray)
-                                    }
-                                }
-                                Spacer()
-                            }
-                            .padding(.vertical, 8)
-                        }
-                        
-                        if terminatedEmployees.count > 3 {
-                            NavigationLink(destination: TerminatedEmployeesListView()) {
-                                Text("Ver todos (\(terminatedEmployees.count))")
-                                    .font(.caption)
-                            }
+    @ViewBuilder
+    private func specialStatusDisclosureGroup(
+        status: EmployeeStatus,
+        employees: [Employee],
+        statsCount: Int,
+        title: String,
+        icon: String,
+        color: Color,
+        showTerminationDate: Bool // NEW: Control the date display
+    ) -> some View {
+        if !employees.isEmpty {
+            DisclosureGroup("\(title) (\(statsCount))") {
+                if employees.isEmpty {
+                    Text("No hay \(title.lowercased())")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                } else {
+                    ForEach(employees.prefix(3)) { employee in
+                        EmployeeStatusRow(employee: employee, status: title, icon: icon, color: color)
+                        if showTerminationDate, let date = employee.terminationDate { // Conditional date display
+                            Text("Baja: \(date.formatted(date: .abbreviated, time: .omitted))")
+                                .font(.caption2)
+                                .foregroundColor(.gray)
                         }
                     }
-                    .padding()
-                    .background(Color(.systemBackground))
-                    .cornerRadius(12)
-                    .shadow(radius: 2)
-                    .padding(.horizontal)
                 }
             }
         }
+    }
     
     
-    private func generateReport() {
-            let dateFormatter = DateFormatter()
-            dateFormatter.dateStyle = .medium
-            
-            let reportText = """
-            Reporte de Asistencia - \(dateFormatter.string(from: Date()))
-            =====================================
-            
-            RESUMEN GENERAL:
-            • Total empleados: \(stats.totalEmployees)
-            • Activos: \(stats.activeEmployees)
-            • Presentes: \(stats.present)
-            • Ausentes: \(stats.absent)
-            • Bajas: \(stats.terminated)
-            • Porcentaje de asistencia: \(String(format: "%.1f%%", stats.attendancePercentage))
-            • Horas trabajadas: \(String(format: "%.1f h", stats.totalHoursWorked))
-            
-            OPERADORES POR ÁREA:
-            \(stats.operatorsByArea.map { "• \($0.key): \($0.value)" }.joined(separator: "\n"))
-            
-            EMPLEADOS AUSENTES HOY:
-            \(viewModel.attendanceRecords.filter {
-                Calendar.current.isDate($0.date, inSameDayAs: viewModel.selectedDate) && $0.status == .absent
-            }.compactMap { record in
-                viewModel.employees.first { $0.id == record.employeeId }?.name
-            }.joined(separator: "\n• "))
-            
-            EMPLEADOS DADOS DE BAJA:
-            \(terminatedEmployees.map { "• \($0.name) (#\($0.operatorNumber)) - \($0.terminationDate?.formatted(date: .abbreviated, time: .omitted) ?? "Sin fecha")" }.joined(separator: "\n"))
-            """
-            
-            let pdfGenerator = PDFGenerator2()
-            pdfURL = pdfGenerator.generateAttendancePDF(content: reportText)
-            showingShareSheet = true
+    struct EmployeeStatusRow: View {
+        let employee: Employee
+        let status: String
+        let icon: String
+        let color: Color
+        
+        var body: some View {
+            HStack {
+                Image(systemName: icon)
+                    .foregroundColor(color)
+                VStack(alignment: .leading) {
+                    Text(employee.name)
+                        .font(.subheadline)
+                    Text("#\(employee.operatorNumber) - \(employee.area)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+                Text(status)
+                    .font(.caption)
+                    .foregroundColor(color)
+            }
+            .padding(.vertical, 4)
         }
     }
-
+    
+    
+    private func generateCompleteReportText() -> String {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateStyle = .medium
+        dateFormatter.timeStyle = .none
+        
+        let timeFormatter = DateFormatter()
+        timeFormatter.dateStyle = .none
+        timeFormatter.timeStyle = .short
+        
+        // Obtener empleados presentes y ausentes hoy
+        let today = viewModel.selectedDate
+        let todayRecords = viewModel.attendanceRecords.filter {
+            Calendar.current.isDate($0.date, inSameDayAs: today)
+        }
+        
+        let presentToday = todayRecords.filter { $0.status == .present }
+        let absentToday = todayRecords.filter { $0.status == .absent }
+        
+        // Preparar reporte detallado
+        var reportText = """
+        📊 REPORTE DETALLADO DE ASISTENCIA
+        📅 \(dateFormatter.string(from: Date()))
+        =====================================
+        
+        🔍 RESUMEN GENERAL
+        • Total empleados: \(stats.totalEmployees)
+        • Empleados activos: \(stats.activeEmployees)
+        • Presentes hoy: \(stats.present)
+        • Ausentes hoy: \(stats.absent)
+        • En vacaciones: \(stats.onVacation)
+        • Con permisos: \(stats.onleave)
+        • Suspendidos: \(stats.suspended)
+        • Bajas recientes: \(stats.terminated)
+        • % Asistencia: \(String(format: "%.1f%%", stats.attendancePercentage))
+        • Horas trabajadas: \(String(format: "%.1f h", stats.totalHoursWorked))
+        
+        📋 DETALLE POR ÁREAS
+        """
+        
+        // Detalle por áreas con nombres de empleados
+        for area in stats.attendanceByArea {
+            let areaEmployees = viewModel.employees.filter { $0.area == area.area && $0.status == .active }
+            let presentEmployees = areaEmployees.filter { emp in
+                todayRecords.contains { $0.employeeId == emp.id && $0.status == .present }
+            }
+            
+            reportText += """
+            
+            🔹 \(area.area.uppercased()) (\(area.present)/\(area.total) - \(String(format: "%.1f%%", Double(area.present)/Double(area.total)*100))
+            ✅ Presentes:
+            \(presentEmployees.isEmpty ? "   - Ninguno" : presentEmployees.map { "   - \($0.name) (#\($0.operatorNumber))" }.joined(separator: "\n"))
+            
+            ❌ Ausentes:
+            \(areaEmployees.filter { emp in !presentEmployees.contains(where: { $0.id == emp.id }) }
+              .isEmpty ? "   - Ninguno" :
+              areaEmployees.filter { emp in !presentEmployees.contains(where: { $0.id == emp.id }) }
+              .map { "   - \($0.name) (#\($0.operatorNumber))" }.joined(separator: "\n"))
+            """
+        }
+        
+        // Empleados con faltas recurrentes
+        reportText += """
+        
+        ⚠️ EMPLEADOS CON 3+ FALTAS (ÚLTIMOS 30 DÍAS)
+        """
+        
+        if stats.frequentAbsentees.isEmpty {
+            reportText += "\n   - No hay empleados con faltas recurrentes"
+        } else {
+            for employee in stats.frequentAbsentees {
+                let absences = viewModel.attendanceRecords
+                    .filter { $0.employeeId == employee.id && $0.status == .absent }
+                    .sorted { $0.date > $1.date }
+                
+                reportText += """
+                
+                • \(employee.name) (#\(employee.operatorNumber)) - \(employee.area) //
+                Total faltas: \(absences.count)
+                Últimas faltas:
+                \(absences.prefix(5).map {
+                    "    - \($0.date.formatted(date: .abbreviated, time: .omitted))" +
+                ($0.absenceReason != nil ? " (Motivo: \($0.absenceReason!))" : "")
+                }.joined(separator: "\n"))
+                """
+            }
+        }
+        
+        // Personal en vacaciones
+        let onVacation = viewModel.employees.filter { $0.status == .onVacation }
+        reportText += """
+        
+        🏖 EMPLEADOS EN VACACIONES
+        \(onVacation.isEmpty ? "   - Ninguno" : onVacation.map {
+            "   - \($0.name) (#\($0.operatorNumber)) - \($0.area)"
+        }.joined(separator: "\n"))
+        """
+        
+        // Personal suspendido
+        let suspended = viewModel.employees.filter { $0.status == .suspended }
+        reportText += """
+        
+        ⏸ EMPLEADOS SUSPENDIDOS
+        \(suspended.isEmpty ? "   - Ninguno" : suspended.map {
+            "   - \($0.name) (#\($0.operatorNumber)) - \($0.area)"
+        }.joined(separator: "\n"))
+        """
+        
+        // Personal con permisos
+        let onLeave = viewModel.employees.filter { $0.status == .onLeave }
+        reportText += """
+        
+        📅 EMPLEADOS CON PERMISOS
+        \(onLeave.isEmpty ? "   - Ninguno" : onLeave.map {
+            "   - \($0.name) (#\($0.operatorNumber)) - \($0.area)"
+        }.joined(separator: "\n"))
+        """
+        
+        // Bajas recientes
+        reportText += """
+        
+        🚪 EMPLEADOS DADOS DE BAJA
+        \(terminatedEmployees.isEmpty ? "   - Ninguno" : terminatedEmployees.map {
+            "   - \($0.name) (#\($0.operatorNumber)) - \($0.area)" +
+            ($0.terminationDate != nil ? " (Baja: \($0.terminationDate!.formatted(date: .abbreviated, time: .omitted)))" : "")
+        }.joined(separator: "\n"))
+        """
+        
+        // Registro de asistencia del día
+        reportText += """
+        
+        📅 REGISTRO DE ASISTENCIA - \(dateFormatter.string(from: today))
+        ✅ Presentes (\(presentToday.count)):
+        \(presentToday.isEmpty ? "   - Ninguno" : presentToday.compactMap { record in
+            viewModel.employees.first { $0.id == record.employeeId }?.name
+        }.map { "   - \($0)" }.joined(separator: "\n"))
+        
+        ❌ Ausentes (\(absentToday.count)):
+        \(absentToday.isEmpty ? "   - Ninguno" : absentToday.compactMap { record in
+            if let employee = viewModel.employees.first(where: { $0.id == record.employeeId }) {
+                return "   - \(employee.name) (#\(employee.operatorNumber))" +
+                       (record.absenceReason != nil ? " (Motivo: \(record.absenceReason!))" : "")
+            }
+            return nil
+        }.joined(separator: "\n")))
+        """
+        
+        return reportText
+    }
+}
+    
     struct TerminatedEmployeesListView: View {
         @EnvironmentObject var viewModel: AttendanceViewModel
         

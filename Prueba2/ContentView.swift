@@ -34,6 +34,11 @@ struct ContentView: View {
                     .tabItem {
                         Label("Artículos", systemImage: "cube.box")
                     }
+       /*         ListaOrdenesProcesoView()
+                    .environmentObject(dataManager)
+                    .tabItem {
+                        Label("Proceso", systemImage: "arrow.triangle.2.circlepath")
+                    }*/
                 PedidosView()
                     .tabItem {
                         Label("Pedidos", systemImage: "cart.badge.clock.fill")

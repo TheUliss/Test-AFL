@@ -1,19 +1,25 @@
+//
+//  ListaOrdenesProcesoView.swift
+//  Test AFL
+//
+//  Created by Ulises Islas on 11/04/25.
+//
+
+
 import SwiftUI
 
 struct ListaOrdenesProcesoView: View {
     @EnvironmentObject var dataManager: DataManager
-
-    var ordenesEnProceso: [Orden] {
-        dataManager.ordenes.filter { $0.clasificacion == "Proceso" }
-    }
-
+    
     var body: some View {
         NavigationView {
-            List(ordenesEnProceso) { orden in
+            List(dataManager.ordenesEnProceso) { orden in
                 NavigationLink(destination: EditarProcesosView(orden: orden)) {
                     VStack(alignment: .leading) {
-                        Text("Orden: \(orden.codigo)")
-                        Text("Banco: \(orden.banco)").font(.subheadline).foregroundColor(.gray)
+                        Text("Orden: \(orden.nombre)")
+                        if let banco = orden.banco {
+                            Text("Banco: \(banco)").font(.subheadline).foregroundColor(.gray)
+                        }
                     }
                 }
             }
@@ -46,7 +52,10 @@ struct EditarProcesosView: View {
                         Text(op).frame(width: 180, alignment: .leading)
                         TextField("Cantidad", text: Binding(
                             get: { cantidades[op] ?? "" },
-                            set: { cantidades[op] = $0 }
+                            set: {
+                                // Solo permite números
+                                if $0.isEmpty || Int($0) != nil {
+                                    cantidades[op] = $0}}
                         ))
                         .keyboardType(.numberPad)
                     }
@@ -64,19 +73,23 @@ struct EditarProcesosView: View {
                 }
             }
         }
-        .navigationTitle("Editar \(orden.codigo)")
+        .navigationTitle("Editar \(orden.nombre)")
     }
-
     func guardarCambios() {
-        guard let index = dataManager.ordenes.firstIndex(where: { $0.id == orden.id }) else { return }
-        for (op, val) in cantidades {
-            if let cantidad = Int(val) {
-                dataManager.ordenes[index].cantidadesPorOperacion[op] = cantidad
+        // Buscar el artículo que contiene esta orden
+        for (i, articulo) in dataManager.articulos.enumerated() {
+            if let j = articulo.ordenes.firstIndex(where: { $0.id == orden.id }) {
+                for (op, val) in cantidades {
+                    if let cantidad = Int(val) {
+                        dataManager.articulos[i].ordenes[j].cantidadesPorOperacion[op] = cantidad
+                    }
+                }
             }
         }
-        dataManager.guardar()
     }
+   
 }
+
 
 struct ResumenProcesosView: View {
     @EnvironmentObject var dataManager: DataManager
@@ -88,24 +101,28 @@ struct ResumenProcesosView: View {
         "17 - Polaridad", "18 - Prueba", "20 - Calidad", "21 - Puntas Finales", "22 - Puntas Empacadas"
     ]
 
+    var ordenesEnProceso: [Orden] {
+        dataManager.ordenes.filter { $0.clasificacion == .proceso }
+    }
+
     var body: some View {
         ScrollView(.horizontal) {
             VStack(alignment: .leading) {
                 HStack {
                     Text("Operación").frame(width: 200)
-                    ForEach(dataManager.ordenes.filter { $0.clasificacion == "Proceso" }) { orden in
-                        Text(orden.codigo).frame(width: 80)
+                    ForEach(ordenesEnProceso) { orden in
+                        Text(orden.nombre).frame(width: 80)
                     }
                     Text("Total").bold().frame(width: 80)
                 }
 
                 ForEach(operaciones, id: \.self) { op in
+                    let valores = ordenesEnProceso.map { $0.cantidadesPorOperacion[op] ?? 0 }
+                    let total = valores.reduce(0, +)
+
                     HStack {
                         Text(op).frame(width: 200)
-                        var total = 0
-                        ForEach(dataManager.ordenes.filter { $0.clasificacion == "Proceso" }) { orden in
-                            let val = orden.cantidadesPorOperacion[op] ?? 0
-                            total += val
+                        ForEach(valores, id: \.self) { val in
                             Text("\(val)").frame(width: 80)
                         }
                         Text("\(total)").bold().frame(width: 80)

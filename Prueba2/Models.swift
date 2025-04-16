@@ -45,28 +45,29 @@ public struct Orden: Identifiable, Codable {
     public var clasificacion: Clasificacion
     public var banco: String?
     public var fechaUltimaModificacion: Date?
-    public var fechaInicioProceso: Date? // 🔹 Nueva variable para registrar el tiempo de inicio en proceso
+    public var fechaInicioProceso: Date?
     public var noWeek: String?
     public var nota: String?
-    public var articuloNombre: String  // ← Nuevo
-    public var articuloDescripcion: String // ← Nuevo
-    public var tiempoLimiteHoras: Int // 🔹 Nuevo campo para el tiempo límite personalizado
+    public var articuloNombre: String
+    public var articuloDescripcion: String
+    public var tiempoLimiteHoras: Int
     public var fueNotificadaRetraso: Bool
     
-    
-    
+    public var cantidadesPorOperacion: [String: Int] = [:]
+
     public init(id: UUID = UUID(),
                 nombre: String,
                 clasificacion: Clasificacion,
                 banco: String? = nil,
                 fechaUltimaModificacion: Date? = nil,
-                fechaInicioProceso: Date? = nil, // 🔹 Incluir en el inicializador
+                fechaInicioProceso: Date? = nil,
                 noWeek: String? = nil,
                 nota: String? = nil,
                 articuloNombre: String,
-                articuloDescripcion: String, // ← Nuevos parámetros
+                articuloDescripcion: String,
                 tiempoLimiteHoras: Int = 1,
-                fueNotificadaRetraso: Bool = false) {
+                fueNotificadaRetraso: Bool = false,
+                cantidadesPorOperacion: [String: Int] = [:]) {
         
         self.id = id
         self.nombre = nombre
@@ -80,8 +81,11 @@ public struct Orden: Identifiable, Codable {
         self.articuloDescripcion = articuloDescripcion
         self.tiempoLimiteHoras = tiempoLimiteHoras
         self.fueNotificadaRetraso = fueNotificadaRetraso
+        self.cantidadesPorOperacion = [:]
+
     }
 }
+
 
 struct Articulo: Identifiable, Codable {
     var id = UUID()

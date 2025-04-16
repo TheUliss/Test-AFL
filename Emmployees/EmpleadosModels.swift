@@ -12,6 +12,8 @@ enum EmployeeStatus: String, Codable, CaseIterable {
     case active = "Activo"
     case inactive = "Baja"
     case onLeave = "Permiso"
+    case onVacation = "Vacaciones"
+    case suspended = "Suspencion"
 }
 
 enum AttendanceStatus: String, Codable {
@@ -19,6 +21,8 @@ enum AttendanceStatus: String, Codable {
     case absent = "Ausente"
     case terminated = "Baja"
     case onLeave = "Permiso"
+    case onVacation = "Vacaciones"
+    case suspended = "Suspencion"
 }
 
 struct Employee: Identifiable, Codable, Hashable {
@@ -61,6 +65,9 @@ struct AttendanceStats {
     let present: Int
     let absent: Int
     let terminated: Int
+    let onVacation: Int
+    let suspended: Int
+    let onleave: Int
     let totalEmployees: Int
     let activeEmployees: Int
     let operatorsByArea: [(key: String, value: Int)]
@@ -69,3 +76,4 @@ struct AttendanceStats {
     let frequentAbsentees: [Employee]
     let attendanceByArea: [(area: String, present: Int, total: Int)]
 }
+
