@@ -52,9 +52,12 @@ public struct Orden: Identifiable, Codable {
     public var articuloDescripcion: String
     public var tiempoLimiteHoras: Int
     public var fueNotificadaRetraso: Bool
-    
     public var cantidadesPorOperacion: [String: Int] = [:]
 
+    public var nivelUrgencia: String = "Media"
+    public var incluirEnResumen: Bool = true
+    public var numeroReferencia: Int?
+    
     public init(id: UUID = UUID(),
                 nombre: String,
                 clasificacion: Clasificacion,
@@ -67,7 +70,9 @@ public struct Orden: Identifiable, Codable {
                 articuloDescripcion: String,
                 tiempoLimiteHoras: Int = 1,
                 fueNotificadaRetraso: Bool = false,
-                cantidadesPorOperacion: [String: Int] = [:]) {
+                cantidadesPorOperacion: [String: Int] = [:],
+                numeroReferencia: Int? = nil
+    ){
         
         self.id = id
         self.nombre = nombre
@@ -81,8 +86,9 @@ public struct Orden: Identifiable, Codable {
         self.articuloDescripcion = articuloDescripcion
         self.tiempoLimiteHoras = tiempoLimiteHoras
         self.fueNotificadaRetraso = fueNotificadaRetraso
-        self.cantidadesPorOperacion = [:]
-
+        self.cantidadesPorOperacion = cantidadesPorOperacion
+        self.numeroReferencia = numeroReferencia
+        // 👇 No es necesario establecerlos, ya tienen valor por defecto
     }
 }
 
@@ -113,7 +119,7 @@ struct ComponenteOrden: Identifiable {
 }
 
 
-struct ShareSheet: UIViewControllerRepresentable {
+/*struct ShareSheet: UIViewControllerRepresentable {
     var activityItems: [Any]
     var applicationActivities: [UIActivity]? = nil
     func makeUIViewController(context: Context) -> UIActivityViewController {
@@ -122,6 +128,16 @@ struct ShareSheet: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {
         // No es necesario actualizar nada en este caso
     }
+}*/
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let activityItems: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 

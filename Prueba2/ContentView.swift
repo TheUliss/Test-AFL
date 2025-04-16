@@ -24,28 +24,29 @@ struct ContentView: View {
                     .tabItem {
                         Label("Control de Piso", systemImage: "waveform.path.ecg.rectangle.fill")
                     }
-                ResumenSemanalView()
-                    .environmentObject(dataManager)
-                    .tabItem {
-                        Label("On Hand", systemImage: "hand.point.up.left.and.text")
-                    }
+                
                 GestionarInventarioView()
                     .environmentObject(dataManager)
                     .tabItem {
                         Label("Artículos", systemImage: "cube.box")
                     }
-       /*         ListaOrdenesProcesoView()
+                ListaOrdenesProcesoView()
                     .environmentObject(dataManager)
                     .tabItem {
                         Label("Proceso", systemImage: "arrow.triangle.2.circlepath")
-                    }*/
+                    }
+                ResumenSemanalView()
+                    .environmentObject(dataManager)
+                    .tabItem {
+                        Label("On Hand", systemImage: "hand.point.up.left.and.text")
+                    }
                 PedidosView()
                     .tabItem {
                         Label("Pedidos", systemImage: "cart.badge.clock.fill")
                     }
             }
 
-            GeometryReader { geometry in
+      /*      GeometryReader { geometry in
                 VStack {
                     Spacer()
                     HStack {
@@ -62,12 +63,12 @@ struct ContentView: View {
                         .offset(x: geometry.size.width * -0.05, y: -65) // Posiciona el botón entre las pestañas "On Hand" y "Artículos"
                     }
                 }
-            }
+            } */
         }
-        .sheet(isPresented: $mostrarAgregarArticulo) {
+        /*.sheet(isPresented: $mostrarAgregarArticulo) {
             AgregarArticuloView(articuloEditable: .constant(nil))
                 .environmentObject(dataManager)
-        }
+        } */
     }
 }
 

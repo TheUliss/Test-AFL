@@ -73,62 +73,7 @@ struct EditarOrdenView: View {
     private func cargarMateriales() {
         materiales = articulo.materiales
     }
-    
- /*   private func guardarCambios() {
-        // Validación separada en funciones auxiliares
-        if !validarCampos() {
-            showValidationError = true
-            return
-        }
-        asignarValores()
-        actualizarDataManager()
-        /*
-        // Guardar las órdenes en el App Group y notificar al widget
-        dataManager.guardarOrdenesParaWidget() // <-- Llamada corregida
         
-        NotificationCenter.default.post(name: .datosActualizados, object: nil)
-        
-        // Notifica al widget que se actualizaron los datos
-        WidgetCenter.shared.reloadTimelines(ofKind: "OrdenesWidget")*/
-        
-        // Forzar actualización de vistas
-            DispatchQueue.main.async {
-                dataManager.objectWillChange.send() // Notificar cambios al EnvironmentObject
-                dataManager.guardarOrdenesParaWidget()
-             //   NotificationCenter.default.post(name: .datosActualizados, object: nil)
-                WidgetCenter.shared.reloadTimelines(ofKind: "OrdenesWidget")
-            }
-        
-        // Cerrar la vista
-        presentationMode.wrappedValue.dismiss()
-    } */
- /*
-    private func guardarCambios() {
-        // Validación
-        if !validarCampos() {
-            showValidationError = true
-            return
-        }
-        
-        asignarValores()
-        actualizarDataManager()
-        
-        // Actualización sincronizada
-        DispatchQueue.main.async {
-            // 1. Guardar cambios en el DataManager
-            dataManager.objectWillChange.send()
-            
-            // 2. Guardar para el widget
-            dataManager.guardarOrdenesParaWidget()
-            
-            // 3. Forzar actualización del widget
-            WidgetCenter.shared.reloadTimelines(ofKind: "OrdenesWidget")
-            
-            // 4. Cerrar la vista
-            presentationMode.wrappedValue.dismiss()
-        }
-    }
-*/
     
     private func guardarCambios() {
         // Validación
