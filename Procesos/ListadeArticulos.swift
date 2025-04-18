@@ -5,8 +5,7 @@
 //  Created by Uls on 24/01/25.
 //
 
-//MARK: GESTION DE INVENTARIOS
-
+//MARK: GESTION DE ARTICULOS
 import SwiftUI
 import MobileCoreServices
 

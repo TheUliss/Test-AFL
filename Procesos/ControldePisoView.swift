@@ -24,6 +24,8 @@ struct ControlDePisoView: View {
     @State private var fuenteDeImagen: UIImagePickerController.SourceType = .photoLibrary
     @State private var mostrandoImagePicker: Bool = false
     @State private var imagenSeleccionada: UIImage? = nil
+    @State private var irAListaBancos = false
+    
     
     enum CriterioOrden: String, CaseIterable, Identifiable {
         case nombreArticulo = "Nombre del Artículo"
@@ -59,6 +61,11 @@ struct ControlDePisoView: View {
                             Label("Exportar", systemImage: "square.and.arrow.up")
                         }
                     }
+                    ToolbarItem(placement: .navigationBarLeading) {
+                            Button(action: { irAListaBancos = true }) {
+                                Label("Bancos", systemImage: "list.number")
+                            }
+                        }
                 }
                
                 .sheet(isPresented: $mostrandoEditorOrden) {
@@ -68,7 +75,10 @@ struct ControlDePisoView: View {
                 }
             }
            .toast(message: mensajeCopiado ?? "", isShowing: $mostrarToast, duration: 2)
+            
         }
+        
+
     }
    
         // MARK: - Subvistas
